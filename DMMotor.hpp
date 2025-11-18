@@ -1,11 +1,18 @@
 #pragma once
-  /*   调用MANIFEST模块示例
-     - dm_motor1_:
-       model: DMMotor::Model::MOTOR_DM4310
-       reverse: false
-       can_id: 1
-       can_bus_name: can1
-  */
+  // clang-format off
+/* === MODULE MANIFEST V2 ===
+module_description: No description provided
+constructor_args:
+  - param:
+      model: DMMotor::Model::MOTOR_DM4310
+      reverse: false
+      can_id: 1
+      can_bus_name: can1
+template_args: []
+required_hardware: []
+depends: []
+=== END MANIFEST === */
+  // clang-format on
 
 #include <algorithm>
 #include <cstddef>
@@ -17,8 +24,6 @@
 #include "libxr_def.hpp"
 #include "libxr_type.hpp"
 #include "thread.hpp"
-
-
 
 #define DM4310_PMAX (12.5f)
 #define DM4310_VMAX (30.0f)
@@ -36,65 +41,64 @@
 #define DM8009_KD_MIN (0.0f)
 #define DM8009_KD_MAX (5.0f)
 
+  class DMMotor : public LibXR::Application {
+   public:
+    /*电机型号*/
+    enum class Model : uint8_t {
+      MOTOR_NONE = 0,
+      MOTOR_DM4310,
+      MOTOR_DM8009,
+    };
 
-class DMMotor : public LibXR::Application {
- public:
+    /*电机参数*/
+    struct Param {
+      Model model;
+      bool reverse;
+      uint16_t can_id;
+      const char* can_bus_name;
+    };
 
-  /*电机型号*/
-  enum class Model : uint8_t {
-    MOTOR_NONE = 0,
-    MOTOR_DM4310,
-    MOTOR_DM8009,
-  };
+    /*返回数据*/
+    struct Feedback {
+      uint8_t id = 0;
+      uint8_t state = 0;                        /*错误的状态*/
+      float pos = 0.0f;                         /*原始角度*/
+      LibXR::CycleValue<float> rotor_abs_angle; /*CycleValue后的pos*/
+      float vel = 0.0f;                         /*速度 (rad/s)*/
+      float tor = 0.0f;                         /* 扭矩 (Nm)*/
+      float t_mos = 0.0f;                       /* MOS 温度 (°C)*/
+      float t_coil = 0.0f;                      /* 线圈温度 (°C)*/
+      /*UintToFloat前的数据*/
+      int16_t p_int = 0;
+      int16_t v_int = 0;
+      int16_t t_int = 0;
+    };
 
-  /*电机参数*/
-  struct Param {
-    Model model;
-    bool reverse;
-    uint16_t can_id;
-    const char* can_bus_name;
-  };
+    /*量程*/
+    struct LSB {
+      float P_MAX;
+      float V_MAX;
+      float T_MAX;
+      float KD_MIN;
+      float KD_MAX;
+      float KP_MIN;
+      float KP_MAX;
+    };
 
-  /*返回数据*/
-  struct Feedback {
-    uint8_t id = 0;
-    uint8_t state = 0; /*错误的状态*/
-    float pos = 0.0f;  /*原始角度*/
-    LibXR::CycleValue<float> rotor_abs_angle; /*CycleValue后的pos*/
-    float vel = 0.0f; /*速度 (rad/s)*/
-    float tor = 0.0f; /* 扭矩 (Nm)*/
-    float t_mos = 0.0f; /* MOS 温度 (°C)*/
-    float t_coil = 0.0f; /* 线圈温度 (°C)*/
-    /*UintToFloat前的数据*/
-    int16_t p_int = 0;
-    int16_t v_int = 0;
-    int16_t t_int = 0;
-  };
+    /**
+     * @brief DMMotor 的构造函数
+     * @param hw
+     * @param app
+     * @param param 电机参数 (电机型号 是否反转 CANID CanBusName)
+     */
+    DMMotor(LibXR::HardwareContainer& hw, LibXR::ApplicationManager& app,
+            const Param& param)
+        : param_(param),
+          feedback_{},
+          can_(hw.template FindOrExit<LibXR::CAN>({param_.can_bus_name})) {
+      UNUSED(app);
 
-  /*量程*/
-  struct LSB {
-    float P_MAX;
-    float V_MAX;
-    float T_MAX;
-    float KD_MIN;
-    float KD_MAX;
-    float KP_MIN;
-    float KP_MAX;
-  };
-
-  /**
-   * @brief DMMotor 的构造函数
-   * @param hw
-   * @param app
-   * @param param 电机参数 (电机型号 是否反转 CANID CanBusName)
-   */
-DMMotor(LibXR::HardwareContainer& hw, LibXR::ApplicationManager& app,
-     Param &param)
-    : param_(param), feedback_{},
-      can_(hw.template FindOrExit<LibXR::CAN>({param_.can_bus_name})) {
-    UNUSED(app);
-
-    switch(param_.model){
+      switch (param_.model) {
         case Model::MOTOR_DM4310:
             lsb_.P_MAX = DM4310_PMAX;
             lsb_.V_MAX = DM4310_VMAX;
