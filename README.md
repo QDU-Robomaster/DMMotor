@@ -1,6 +1,6 @@
 # DMMotor
 
-No description provided
+DaMiaoMotor Driver
 
 ## Required Hardware
 None
