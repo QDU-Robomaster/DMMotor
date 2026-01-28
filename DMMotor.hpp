@@ -206,6 +206,9 @@ class DMMotor : public LibXR::Application, public Motor {
     can_->AddMessage(tx_pack);
   }
 
+  void OnMonitor() override {}
+}
+
  private:
   uint64_t last_online_time_; /* 方便查看电机是否在线 */
   Param param_;
@@ -334,7 +337,7 @@ class DMMotor : public LibXR::Application, public Motor {
       Disable();
       XR_LOG_WARN("motor %d high temperature detected", param_.can_id);
     }
-    
+
     vel = std::clamp(vel, -lsb_.V_MAX, lsb_.V_MAX);
     float send_vel = param_.reverse ? -vel : vel;
 
