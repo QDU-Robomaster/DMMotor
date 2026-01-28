@@ -206,8 +206,7 @@ class DMMotor : public LibXR::Application, public Motor {
     can_->AddMessage(tx_pack);
   }
 
-  void OnMonitor() override {}
-}
+  void OnMonitor()override{}
 
  private:
   uint64_t last_online_time_; /* 方便查看电机是否在线 */
