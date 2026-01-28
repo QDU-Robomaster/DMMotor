@@ -255,7 +255,7 @@ class DMMotor : public LibXR::Application, public Motor {
         UintToFloat(static_cast<int16_t>((pack.data[1] << 8) | pack.data[2]),
                     -lsb_.P_MAX, lsb_.P_MAX, 16);
     feedback_.abs_angle = LibXR::CycleValue<float>(feedback_.position);
-    feedback_.velocity = feedback_.velocity * 60.0f / static_cast<float>(M_2PI);
+    feedback_.velocity = feedback_.omega * 60.0f / static_cast<float>(M_2PI);
     feedback_.omega = UintToFloat(
         static_cast<int16_t>((pack.data[3] << 4) | (pack.data[4] >> 4)),
         -lsb_.V_MAX, lsb_.V_MAX, 12);
