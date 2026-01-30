@@ -114,8 +114,8 @@ class DMMotor : public LibXR::Application, public Motor {
         lsb_.KP_MAX = 0;
         break;
     }
-    /* 强制规定达妙电机反馈id=自身id+100 */
-    uint16_t feedback_id_to_register = 0x100 + param_.can_id;
+    /* 强制规定达妙电机反馈id=自身id+10 */
+    uint16_t feedback_id_to_register = 0x10 + param_.can_id;
 
     auto rx_callback = LibXR::CAN::Callback::Create(
         [](bool in_isr, DMMotor* self, const LibXR::CAN::ClassicPack& pack) {
