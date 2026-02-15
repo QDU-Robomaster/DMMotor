@@ -15,6 +15,7 @@ depends: []
 // clang-format on
 
 #include <math.h>
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -177,7 +178,7 @@ class DMMotor : public LibXR::Application, public Motor {
         MITControl(0.0f, 0.0f, 0.0f, 0.0f, cmd.torque);
         break;
       case ControlMode::MODE_MIT:
-      MITControl(cmd.position, cmd.velocity, cmd.kp, cmd.kd, cmd.torque);
+        MITControl(cmd.position, cmd.velocity, cmd.kp, cmd.kd, cmd.torque);
         break;
       default:
         break;
@@ -206,7 +207,7 @@ class DMMotor : public LibXR::Application, public Motor {
     can_->AddMessage(tx_pack);
   }
 
-  void OnMonitor()override{}
+  void OnMonitor() override {}
 
  private:
   uint64_t last_online_time_; /* 方便查看电机是否在线 */
@@ -248,7 +249,7 @@ class DMMotor : public LibXR::Application, public Motor {
     }
   }
 
-  void Decode(LibXR::CAN::ClassicPack& pack){
+  void Decode(LibXR::CAN::ClassicPack& pack) {
     feedback_.error_id = (pack.data[0]) & 0x0F;
     feedback_.state = (pack.data[0]) >> 4;
     feedback_.position =
