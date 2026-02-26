@@ -137,6 +137,7 @@ class DMMotor : public LibXR::Application, public Motor {
     LibXR::CAN::ClassicPack tx_pack{};
     tx_pack.id = id;
     tx_pack.type = LibXR::CAN::Type::STANDARD;
+    tx_pack.dlc = 8;
     memcpy(tx_pack.data, data, 8);
     can_->AddMessage(tx_pack);
   }
@@ -149,6 +150,7 @@ class DMMotor : public LibXR::Application, public Motor {
     LibXR::CAN::ClassicPack tx_pack{};
     tx_pack.id = id;
     tx_pack.type = LibXR::CAN::Type::STANDARD;
+    tx_pack.dlc = 8;
     memcpy(tx_pack.data, data, 8);
     can_->AddMessage(tx_pack);
   }
@@ -192,6 +194,7 @@ class DMMotor : public LibXR::Application, public Motor {
     LibXR::CAN::ClassicPack tx_pack{};
     tx_pack.id = id;
     tx_pack.type = LibXR::CAN::Type::STANDARD;
+    tx_pack.dlc = 8;
     memcpy(tx_pack.data, data, 8);
     can_->AddMessage(tx_pack);
   }
@@ -203,6 +206,7 @@ class DMMotor : public LibXR::Application, public Motor {
     LibXR::CAN::ClassicPack tx_pack{};
     tx_pack.id = id;
     tx_pack.type = LibXR::CAN::Type::STANDARD;
+    tx_pack.dlc = 8;
     memcpy(tx_pack.data, data, 8);
     can_->AddMessage(tx_pack);
   }
@@ -300,6 +304,7 @@ class DMMotor : public LibXR::Application, public Motor {
     LibXR::CAN::ClassicPack tx_pack{};
     tx_pack.id = id;
     tx_pack.type = LibXR::CAN::Type::STANDARD;
+    tx_pack.dlc = 8;
     memcpy(tx_pack.data, data, 8);
     can_->AddMessage(tx_pack);
   }
@@ -328,6 +333,7 @@ class DMMotor : public LibXR::Application, public Motor {
     LibXR::CAN::ClassicPack tx_pack{};
     tx_pack.id = id;
     tx_pack.type = LibXR::CAN::Type::STANDARD;
+    tx_pack.dlc = 8;
     memcpy(tx_pack.data, data, 8);
     can_->AddMessage(tx_pack);
   }
@@ -352,6 +358,7 @@ class DMMotor : public LibXR::Application, public Motor {
     LibXR::CAN::ClassicPack tx_pack{};
     tx_pack.id = id;
     tx_pack.type = LibXR::CAN::Type::STANDARD;
+    tx_pack.dlc = 4;
 
     memcpy(tx_pack.data, data, 4);
     can_->AddMessage(tx_pack);
