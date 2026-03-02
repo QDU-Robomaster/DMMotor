@@ -256,17 +256,27 @@ class DMMotor : public LibXR::Application, public Motor {
   void Decode(LibXR::CAN::ClassicPack& pack) {
     feedback_.error_id = (pack.data[0]) & 0x0F;
     feedback_.state = (pack.data[0]) >> 4;
-    feedback_.position =
+    float position =
         UintToFloat(static_cast<int16_t>((pack.data[1] << 8) | pack.data[2]),
                     -lsb_.P_MAX, lsb_.P_MAX, 16);
-    feedback_.abs_angle = LibXR::CycleValue<float>(feedback_.position);
-    feedback_.velocity = feedback_.omega * 60.0f / static_cast<float>(M_2PI);
-    feedback_.omega = UintToFloat(
+    float omega = UintToFloat(
         static_cast<int16_t>((pack.data[3] << 4) | (pack.data[4] >> 4)),
         -lsb_.V_MAX, lsb_.V_MAX, 12);
-    feedback_.torque = UintToFloat(
+    float torque = UintToFloat(
         static_cast<int16_t>(((pack.data[4] & 0xF) << 8) | pack.data[5]),
         -lsb_.T_MAX, lsb_.T_MAX, 12);
+
+    if (param_.reverse) {
+      position = -position;
+      omega = -omega;
+      torque = -torque;
+    }
+
+    feedback_.position = position;
+    feedback_.abs_angle = LibXR::CycleValue<float>(position);
+    feedback_.velocity = omega * 60.0f / static_cast<float>(M_2PI);
+    feedback_.omega = omega;
+    feedback_.torque = torque;
     feedback_.temp = static_cast<float>(
         pack.data[6] > pack.data[7] ? pack.data[6] : pack.data[7]);
   }
