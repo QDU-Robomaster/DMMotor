@@ -156,6 +156,7 @@ class DMMotor : public LibXR::Application, public Motor {
 
   ErrorCode Update() override {
     LibXR::CAN::ClassicPack pack;
+    bool get_feedback = false;
     while (recv_queue_.Pop(pack) == ErrorCode::OK) {
       this->Decode(pack);
       last_online_time_ = LibXR::Timebase::GetMicroseconds();
