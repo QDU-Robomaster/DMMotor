@@ -14,22 +14,19 @@ depends: []
 === END MANIFEST === */
 // clang-format on
 
-#include <math.h>
+
 
 #include <algorithm>
-#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
 #include "Motor.hpp"
 #include "app_framework.hpp"
 #include "can.hpp"
-#include "cycle_value.hpp"
 #include "libxr_def.hpp"
 #include "libxr_type.hpp"
-#include "thread.hpp"
 
-#define DM4310_PMAX (12.5f)
+#define DM4310_PMAX (6.283185f)
 #define DM4310_VMAX (30.0f)
 #define DM4310_TMAX (10.0f)
 #define DM4310_KP_MIN (0.0f)
@@ -37,7 +34,7 @@ depends: []
 #define DM4310_KD_MIN (0.0f)
 #define DM4310_KD_MAX (5.0f)
 
-#define DM8009_PMAX (12.5f)
+#define DM8009_PMAX (12.56637f)
 #define DM8009_VMAX (45.0f)
 #define DM8009_TMAX (54.0f)
 #define DM8009_KP_MIN (0.0f)
@@ -155,7 +152,7 @@ class DMMotor : public LibXR::Application, public Motor {
     can_->AddMessage(tx_pack);
   }
 
-  void Relax() override {}
+  void Relax() override {Disable();}
 
   ErrorCode Update() override {
     LibXR::CAN::ClassicPack pack;
@@ -163,9 +160,8 @@ class DMMotor : public LibXR::Application, public Motor {
     while (recv_queue_.Pop(pack) == ErrorCode::OK) {
       this->Decode(pack);
       last_online_time_ = LibXR::Timebase::GetMicroseconds();
-      get_feedback = true;
     }
-    return get_feedback ? ErrorCode::OK : ErrorCode::NO_RESPONSE;
+    return ErrorCode::OK;
   }
 
   const Feedback& GetFeedback() override { return feedback_; }
@@ -258,33 +254,32 @@ class DMMotor : public LibXR::Application, public Motor {
   void Decode(LibXR::CAN::ClassicPack& pack) {
     feedback_.error_id = (pack.data[0]) & 0x0F;
     feedback_.state = (pack.data[0]) >> 4;
-    float position =
+    feedback_.position =
         UintToFloat(static_cast<int16_t>((pack.data[1] << 8) | pack.data[2]),
                     -lsb_.P_MAX, lsb_.P_MAX, 16);
-    float omega = UintToFloat(
+
+    feedback_.omega = UintToFloat(
         static_cast<int16_t>((pack.data[3] << 4) | (pack.data[4] >> 4)),
         -lsb_.V_MAX, lsb_.V_MAX, 12);
-    float torque = UintToFloat(
+    feedback_.velocity = feedback_.omega * 60.0f / static_cast<float>(M_2PI);
+    feedback_.torque = UintToFloat(
         static_cast<int16_t>(((pack.data[4] & 0xF) << 8) | pack.data[5]),
         -lsb_.T_MAX, lsb_.T_MAX, 12);
-
-    if (param_.reverse) {
-      position = -position;
-      omega = -omega;
-      torque = -torque;
-    }
-
-    feedback_.position = position;
-    feedback_.abs_angle = LibXR::CycleValue<float>(position);
-    feedback_.velocity = omega * 60.0f / static_cast<float>(M_2PI);
-    feedback_.omega = omega;
-    feedback_.torque = torque;
     feedback_.temp = static_cast<float>(
         pack.data[6] > pack.data[7] ? pack.data[6] : pack.data[7]);
+
+    if (param_.reverse) {
+        feedback_.position = -feedback_.position;
+        feedback_.velocity = -feedback_.velocity;
+        feedback_.torque = -feedback_.torque;
+        feedback_.omega = -feedback_.omega;
+    }
+    feedback_.abs_angle = feedback_.position;
+
   }
 
   void MITControl(float pos, float vel, float kp, float kd, float tor) {
-    if (this->feedback_.temp > 85.0f) {
+    if (this->feedback_.temp > 90.0f) {
       Disable();
       XR_LOG_WARN("motor %d high temperature detected", param_.can_id);
     }
@@ -322,7 +317,7 @@ class DMMotor : public LibXR::Application, public Motor {
   }
 
   void PosControl(float pos, float vel) {
-    if (this->feedback_.temp > 85.0f) {
+    if (this->feedback_.temp > 90.0f) {
       XR_LOG_WARN("motor %d high temperature detected", param_.can_id);
       Disable();
     }
@@ -370,8 +365,7 @@ class DMMotor : public LibXR::Application, public Motor {
     LibXR::CAN::ClassicPack tx_pack{};
     tx_pack.id = id;
     tx_pack.type = LibXR::CAN::Type::STANDARD;
-    tx_pack.dlc = 4;
-
+    tx_pack.dlc = 8;
     memcpy(tx_pack.data, data, 4);
     can_->AddMessage(tx_pack);
   }
