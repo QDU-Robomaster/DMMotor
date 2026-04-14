@@ -14,8 +14,6 @@ depends: []
 === END MANIFEST === */
 // clang-format on
 
-
-
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -152,11 +150,10 @@ class DMMotor : public LibXR::Application, public Motor {
     can_->AddMessage(tx_pack);
   }
 
-  void Relax() override {Disable();}
+  void Relax() override { Disable(); }
 
   ErrorCode Update() override {
     LibXR::CAN::ClassicPack pack;
-    bool get_feedback = false;
     while (recv_queue_.Pop(pack) == ErrorCode::OK) {
       this->Decode(pack);
       last_online_time_ = LibXR::Timebase::GetMicroseconds();
@@ -269,13 +266,12 @@ class DMMotor : public LibXR::Application, public Motor {
         pack.data[6] > pack.data[7] ? pack.data[6] : pack.data[7]);
 
     if (param_.reverse) {
-        feedback_.position = -feedback_.position;
-        feedback_.velocity = -feedback_.velocity;
-        feedback_.torque = -feedback_.torque;
-        feedback_.omega = -feedback_.omega;
+      feedback_.position = -feedback_.position;
+      feedback_.velocity = -feedback_.velocity;
+      feedback_.torque = -feedback_.torque;
+      feedback_.omega = -feedback_.omega;
     }
     feedback_.abs_angle = feedback_.position;
-
   }
 
   void MITControl(float pos, float vel, float kp, float kd, float tor) {
