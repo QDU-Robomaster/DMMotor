@@ -152,13 +152,13 @@ class DMMotor : public LibXR::Application, public Motor {
 
   void Relax() override { Disable(); }
 
-  ErrorCode Update() override {
+  LibXR::ErrorCode Update() override {
     LibXR::CAN::ClassicPack pack;
-    while (recv_queue_.Pop(pack) == ErrorCode::OK) {
+    while (recv_queue_.Pop(pack) == LibXR::ErrorCode::OK) {
       this->Decode(pack);
       last_online_time_ = LibXR::Timebase::GetMicroseconds();
     }
-    return ErrorCode::OK;
+    return LibXR::ErrorCode::OK;
   }
 
   const Feedback& GetFeedback() override { return feedback_; }
@@ -243,7 +243,7 @@ class DMMotor : public LibXR::Application, public Motor {
   static void RxCallback(bool in_isr, DMMotor* self,
                          const LibXR::CAN::ClassicPack& pack) {
     UNUSED(in_isr);
-    while (self->recv_queue_.Push(pack) != ErrorCode::OK) {
+    while (self->recv_queue_.Push(pack) != LibXR::ErrorCode::OK) {
       self->recv_queue_.Pop();
     }
   }
@@ -258,7 +258,8 @@ class DMMotor : public LibXR::Application, public Motor {
     feedback_.omega = UintToFloat(
         static_cast<int16_t>((pack.data[3] << 4) | (pack.data[4] >> 4)),
         -lsb_.V_MAX, lsb_.V_MAX, 12);
-    feedback_.velocity = feedback_.omega * 60.0f / static_cast<float>(M_2PI);
+    feedback_.velocity =
+        feedback_.omega * 60.0f / static_cast<float>(LibXR::TWO_PI);
     feedback_.torque = UintToFloat(
         static_cast<int16_t>(((pack.data[4] & 0xF) << 8) | pack.data[5]),
         -lsb_.T_MAX, lsb_.T_MAX, 12);
