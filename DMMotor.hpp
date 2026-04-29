@@ -275,6 +275,11 @@ class DMMotor : public LibXR::Application, public Motor {
     feedback_.abs_angle = feedback_.position;
   }
 
+ public:
+  float GetAngle() const { return feedback_.position; }
+  float GetTor() const { return feedback_.torque; }
+  float GetOmega() const { return feedback_.omega; }
+
   void MITControl(float pos, float vel, float kp, float kd, float tor) {
     if (this->feedback_.temp > 90.0f) {
       Disable();
@@ -314,6 +319,7 @@ class DMMotor : public LibXR::Application, public Motor {
     can_->AddMessage(tx_pack);
   }
 
+ private:
   void PosControl(float pos, float vel) {
     if (this->feedback_.temp > 90.0f) {
       XR_LOG_WARN("motor %u high temperature detected",
