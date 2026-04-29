@@ -278,7 +278,8 @@ class DMMotor : public LibXR::Application, public Motor {
   void MITControl(float pos, float vel, float kp, float kd, float tor) {
     if (this->feedback_.temp > 90.0f) {
       Disable();
-      XR_LOG_WARN("motor %d high temperature detected", param_.can_id);
+      XR_LOG_WARN("motor %u high temperature detected",
+                  static_cast<unsigned>(param_.can_id));
     }
     pos = std::clamp(pos, -lsb_.P_MAX, lsb_.P_MAX);
     vel = std::clamp(vel, -lsb_.V_MAX, lsb_.V_MAX);
@@ -315,7 +316,8 @@ class DMMotor : public LibXR::Application, public Motor {
 
   void PosControl(float pos, float vel) {
     if (this->feedback_.temp > 90.0f) {
-      XR_LOG_WARN("motor %d high temperature detected", param_.can_id);
+      XR_LOG_WARN("motor %u high temperature detected",
+                  static_cast<unsigned>(param_.can_id));
       Disable();
     }
     pos = std::clamp(pos, -lsb_.P_MAX, lsb_.P_MAX);
@@ -345,7 +347,8 @@ class DMMotor : public LibXR::Application, public Motor {
   void SpdControl(float vel) {
     if (this->feedback_.temp > 85.0f) {
       Disable();
-      XR_LOG_WARN("motor %d high temperature detected", param_.can_id);
+      XR_LOG_WARN("motor %u high temperature detected",
+                  static_cast<unsigned>(param_.can_id));
     }
 
     vel = std::clamp(vel, -lsb_.V_MAX, lsb_.V_MAX);
