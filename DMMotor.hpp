@@ -214,7 +214,7 @@ class DMMotor : public LibXR::Application, public Motor {
   LSB lsb_;
   Motor::Feedback feedback_;
   LibXR::CAN* can_;
-  LibXR::LockFreeQueue<LibXR::CAN::ClassicPack> recv_queue_{1};
+  LibXR::MPMCQueue<LibXR::CAN::ClassicPack> recv_queue_{1};
 
   /*---------------------工具函数---------------------------------------------*/
   int FloatToUint(float x, float x_min, float x_max, int bits) {
