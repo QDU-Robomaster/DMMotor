@@ -10,7 +10,8 @@ constructor_args:
       can_bus_name: can1
 template_args: []
 required_hardware: []
-depends: []
+depends:
+  - qdu-future/Motor
 === END MANIFEST === */
 // clang-format on
 
