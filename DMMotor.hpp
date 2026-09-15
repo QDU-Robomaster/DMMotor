@@ -2,24 +2,18 @@
 // clang-format off
 /* === MODULE MANIFEST V2 ===
 module_description: No description provided
-constructor_args:
-  - param:
-      model: DMMotor::Model::MOTOR_DM4310
-      reverse: false
-      can_id: 1
-      can_bus_name: can1
-template_args: []
-required_hardware: []
-depends: []
+depends:
+- id: QDU-Robomaster/Motor
+  ref: same-or-dev
 === END MANIFEST === */
 // clang-format on
 
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 
 #include "Motor.hpp"
-#include "app_framework.hpp"
 #include "can.hpp"
 #include "libxr_def.hpp"
 #include "libxr_type.hpp"
@@ -40,25 +34,29 @@ depends: []
 #define DM8009_KD_MIN (0.0f)
 #define DM8009_KD_MAX (5.0f)
 
-class DMMotor : public LibXR::Application, public Motor {
+class DMMotor : public Motor
+{
  public:
   /*电机型号*/
-  enum class Model : uint8_t {
+  enum class Model : uint8_t
+  {
     MOTOR_NONE = 0,
     MOTOR_DM4310,
     MOTOR_DM8009,
   };
 
   /*电机参数*/
-  struct Param {
+  struct Param
+  {
     Model model;
     bool reverse;
     uint16_t can_id;
-    const char* can_bus_name;
+    LibXR::CAN& can_bus;
   };
 
   /*量程*/
-  struct LSB {
+  struct LSB
+  {
     float P_MAX;
     float V_MAX;
     float T_MAX;
@@ -70,18 +68,13 @@ class DMMotor : public LibXR::Application, public Motor {
 
   /**
    * @brief DMMotor 的构造函数
-   * @param hw
-   * @param app
    * @param param 电机参数 (电机型号 是否反转 CANID CanBusName)
    */
-  DMMotor(LibXR::HardwareContainer& hw, LibXR::ApplicationManager& app,
-          const Param& param)
-      : param_(param),
-        feedback_{},
-        can_(hw.template FindOrExit<LibXR::CAN>({param_.can_bus_name})) {
-    UNUSED(app);
-
-    switch (param_.model) {
+  DMMotor(const Param& param)
+      : param_(param), feedback_{}, can_(std::addressof(param_.can_bus))
+  {
+    switch (param_.model)
+    {
       case Model::MOTOR_DM4310:
         lsb_.P_MAX = DM4310_PMAX;
         lsb_.V_MAX = DM4310_VMAX;
@@ -114,10 +107,8 @@ class DMMotor : public LibXR::Application, public Motor {
     uint16_t feedback_id_to_register = 0x10 + param_.can_id;
 
     auto rx_callback = LibXR::CAN::Callback::Create(
-        [](bool in_isr, DMMotor* self, const LibXR::CAN::ClassicPack& pack) {
-          RxCallback(in_isr, self, pack);
-        },
-        this);
+        [](bool in_isr, DMMotor* self, const LibXR::CAN::ClassicPack& pack)
+        { RxCallback(in_isr, self, pack); }, this);
     /* 注册can */
     can_->Register(rx_callback, LibXR::CAN::Type::STANDARD,
                    LibXR::CAN::FilterMode::ID_RANGE, feedback_id_to_register,
@@ -125,7 +116,8 @@ class DMMotor : public LibXR::Application, public Motor {
   }
 
   /*使能*/
-  void Enable() override {
+  void Enable() override
+  {
     /*使能can包*/
     uint8_t data[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFC};
     uint16_t id = param_.can_id;
@@ -138,7 +130,8 @@ class DMMotor : public LibXR::Application, public Motor {
   }
 
   /*失能*/
-  void Disable() override {
+  void Disable() override
+  {
     /*失能can包*/
     uint8_t data[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFD};
     uint16_t id = param_.can_id;
@@ -152,9 +145,11 @@ class DMMotor : public LibXR::Application, public Motor {
 
   void Relax() override { Disable(); }
 
-  LibXR::ErrorCode Update() override {
+  LibXR::ErrorCode Update() override
+  {
     LibXR::CAN::ClassicPack pack;
-    while (recv_queue_.Pop(pack) == LibXR::ErrorCode::OK) {
+    while (recv_queue_.Pop(pack) == LibXR::ErrorCode::OK)
+    {
       this->Decode(pack);
       last_online_time_ = LibXR::Timebase::GetMicroseconds();
     }
@@ -163,8 +158,10 @@ class DMMotor : public LibXR::Application, public Motor {
 
   const Feedback& GetFeedback() override { return feedback_; }
 
-  void Control(const MotorCmd& cmd) override {
-    switch (cmd.mode) {
+  void Control(const MotorCmd& cmd) override
+  {
+    switch (cmd.mode)
+    {
       case ControlMode::MODE_POSITION:
         PosControl(cmd.position, cmd.velocity);
         break;
@@ -183,7 +180,8 @@ class DMMotor : public LibXR::Application, public Motor {
   }
 
   /*重置错误状态*/
-  void ClearError() override {
+  void ClearError() override
+  {
     uint8_t data[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFB};
     uint16_t id = param_.can_id;
     LibXR::CAN::ClassicPack tx_pack{};
@@ -195,7 +193,8 @@ class DMMotor : public LibXR::Application, public Motor {
   }
 
   /*将当前位置设成零点*/
-  void SaveZeroPoint() override {
+  void SaveZeroPoint() override
+  {
     uint8_t data[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE};
     uint16_t id = param_.can_id;
     LibXR::CAN::ClassicPack tx_pack{};
@@ -206,7 +205,7 @@ class DMMotor : public LibXR::Application, public Motor {
     can_->AddMessage(tx_pack);
   }
 
-  void OnMonitor() override {}
+  void OnMonitor() {}
 
  private:
   uint64_t last_online_time_; /* 方便查看电机是否在线 */
@@ -214,21 +213,21 @@ class DMMotor : public LibXR::Application, public Motor {
   LSB lsb_;
   Motor::Feedback feedback_;
   LibXR::CAN* can_;
-  LibXR::LockFreeQueue<LibXR::CAN::ClassicPack> recv_queue_{1};
+  LibXR::MPMCQueue<LibXR::CAN::ClassicPack> recv_queue_{1};
 
   /*---------------------工具函数---------------------------------------------*/
-  int FloatToUint(float x, float x_min, float x_max, int bits) {
+  int FloatToUint(float x, float x_min, float x_max, int bits)
+  {
     float span = x_max - x_min;
     float offset = x_min;
-    return static_cast<int>((x - offset) *
-                            (static_cast<float>((1 << bits) - 1)) / span);
+    return static_cast<int>((x - offset) * (static_cast<float>((1 << bits) - 1)) / span);
   }
 
-  float UintToFloat(int x_int, float x_min, float x_max, int bits) {
+  float UintToFloat(int x_int, float x_min, float x_max, int bits)
+  {
     float span = x_max - x_min;
     float offset = x_min;
-    return (static_cast<float>(x_int)) * span /
-               (static_cast<float>((1 << bits) - 1)) +
+    return (static_cast<float>(x_int)) * span / (static_cast<float>((1 << bits) - 1)) +
            offset;
   }
 
@@ -240,33 +239,35 @@ class DMMotor : public LibXR::Application, public Motor {
    * @param self 用户提供的参数，这里是 RMMotorContainer 实例的指针
    * @param pack 接收到的 CAN 数据包
    */
-  static void RxCallback(bool in_isr, DMMotor* self,
-                         const LibXR::CAN::ClassicPack& pack) {
+  static void RxCallback(bool in_isr, DMMotor* self, const LibXR::CAN::ClassicPack& pack)
+  {
     UNUSED(in_isr);
-    while (self->recv_queue_.Push(pack) != LibXR::ErrorCode::OK) {
+    while (self->recv_queue_.Push(pack) != LibXR::ErrorCode::OK)
+    {
       self->recv_queue_.Pop();
     }
   }
 
-  void Decode(LibXR::CAN::ClassicPack& pack) {
+  void Decode(LibXR::CAN::ClassicPack& pack)
+  {
     feedback_.error_id = (pack.data[0]) & 0x0F;
     feedback_.state = (pack.data[0]) >> 4;
     feedback_.position =
-        UintToFloat(static_cast<int16_t>((pack.data[1] << 8) | pack.data[2]),
-                    -lsb_.P_MAX, lsb_.P_MAX, 16);
+        UintToFloat(static_cast<int16_t>((pack.data[1] << 8) | pack.data[2]), -lsb_.P_MAX,
+                    lsb_.P_MAX, 16);
 
-    feedback_.omega = UintToFloat(
-        static_cast<int16_t>((pack.data[3] << 4) | (pack.data[4] >> 4)),
-        -lsb_.V_MAX, lsb_.V_MAX, 12);
-    feedback_.velocity =
-        feedback_.omega * 60.0f / static_cast<float>(LibXR::TWO_PI);
-    feedback_.torque = UintToFloat(
-        static_cast<int16_t>(((pack.data[4] & 0xF) << 8) | pack.data[5]),
-        -lsb_.T_MAX, lsb_.T_MAX, 12);
-    feedback_.temp = static_cast<float>(
-        pack.data[6] > pack.data[7] ? pack.data[6] : pack.data[7]);
+    feedback_.omega =
+        UintToFloat(static_cast<int16_t>((pack.data[3] << 4) | (pack.data[4] >> 4)),
+                    -lsb_.V_MAX, lsb_.V_MAX, 12);
+    feedback_.velocity = feedback_.omega * 60.0f / static_cast<float>(LibXR::TWO_PI);
+    feedback_.torque =
+        UintToFloat(static_cast<int16_t>(((pack.data[4] & 0xF) << 8) | pack.data[5]),
+                    -lsb_.T_MAX, lsb_.T_MAX, 12);
+    feedback_.temp =
+        static_cast<float>(pack.data[6] > pack.data[7] ? pack.data[6] : pack.data[7]);
 
-    if (param_.reverse) {
+    if (param_.reverse)
+    {
       feedback_.position = -feedback_.position;
       feedback_.velocity = -feedback_.velocity;
       feedback_.torque = -feedback_.torque;
@@ -280,8 +281,10 @@ class DMMotor : public LibXR::Application, public Motor {
   float GetTor() const { return feedback_.torque; }
   float GetOmega() const { return feedback_.omega; }
 
-  void MITControl(float pos, float vel, float kp, float kd, float tor) {
-    if (this->feedback_.temp > 90.0f) {
+  void MITControl(float pos, float vel, float kp, float kd, float tor)
+  {
+    if (this->feedback_.temp > 90.0f)
+    {
       Disable();
       XR_LOG_WARN("motor %u high temperature detected",
                   static_cast<unsigned>(param_.can_id));
@@ -320,8 +323,10 @@ class DMMotor : public LibXR::Application, public Motor {
   }
 
  private:
-  void PosControl(float pos, float vel) {
-    if (this->feedback_.temp > 90.0f) {
+  void PosControl(float pos, float vel)
+  {
+    if (this->feedback_.temp > 90.0f)
+    {
       XR_LOG_WARN("motor %u high temperature detected",
                   static_cast<unsigned>(param_.can_id));
       Disable();
@@ -336,7 +341,8 @@ class DMMotor : public LibXR::Application, public Motor {
     uint8_t* pbuf = reinterpret_cast<uint8_t*>(&send_pos);
     uint8_t* vbuf = reinterpret_cast<uint8_t*>(&send_vel);
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 4; ++i)
+    {
       data[i] = pbuf[i];
       data[i + 4] = vbuf[i];
     }
@@ -350,8 +356,10 @@ class DMMotor : public LibXR::Application, public Motor {
     can_->AddMessage(tx_pack);
   }
 
-  void SpdControl(float vel) {
-    if (this->feedback_.temp > 85.0f) {
+  void SpdControl(float vel)
+  {
+    if (this->feedback_.temp > 85.0f)
+    {
       Disable();
       XR_LOG_WARN("motor %u high temperature detected",
                   static_cast<unsigned>(param_.can_id));
@@ -363,7 +371,8 @@ class DMMotor : public LibXR::Application, public Motor {
     uint8_t data[4];
     uint8_t* vbuf = reinterpret_cast<uint8_t*>(&send_vel);
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 4; ++i)
+    {
       data[i] = vbuf[i];
     }
 
