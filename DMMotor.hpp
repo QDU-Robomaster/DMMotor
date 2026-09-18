@@ -51,7 +51,6 @@ class DMMotor : public Motor
     Model model;
     bool reverse;
     uint16_t can_id;
-    LibXR::CAN& can_bus;
   };
 
   /*量程*/
@@ -70,8 +69,11 @@ class DMMotor : public Motor
    * @brief DMMotor 的构造函数
    * @param param 电机参数 (电机型号 是否反转 CANID CanBusName)
    */
-  DMMotor(const Param& param)
-      : param_(param), feedback_{}, can_(std::addressof(param_.can_bus))
+  DMMotor(
+      LibXR::CAN& can_bus,
+      const Param& param = {
+      .model = DMMotor::Model::MOTOR_DM4310, .reverse = false, .can_id = 1})
+      : param_(param), feedback_{}, can_(std::addressof(can_bus))
   {
     switch (param_.model)
     {
