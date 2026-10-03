@@ -1,7 +1,7 @@
 #pragma once
 // clang-format off
 /* === MODULE MANIFEST V2 ===
-module_description: No description provided
+module_description: 达妙（DM）电机 CAN 驱动模块，支持 DM4310 与 DM8009 / CAN driver Module for Damiao (DM) motors, supporting the DM4310 and DM8009
 depends:
 - id: QDU-Robomaster/Motor
   ref: same-or-dev
@@ -105,13 +105,12 @@ class DMMotor : public Motor
         lsb_.KP_MAX = 0;
         break;
     }
-    /* 强制规定达妙电机反馈id=自身id+10 */
+    // 反馈帧 ID 为 0x10 + can_id
     uint16_t feedback_id_to_register = 0x10 + param_.can_id;
 
     auto rx_callback = LibXR::CAN::Callback::Create(
         [](bool in_isr, DMMotor* self, const LibXR::CAN::ClassicPack& pack)
         { RxCallback(in_isr, self, pack); }, this);
-    /* 注册can */
     can_->Register(rx_callback, LibXR::CAN::Type::STANDARD,
                    LibXR::CAN::FilterMode::ID_RANGE, feedback_id_to_register,
                    feedback_id_to_register);
@@ -120,7 +119,6 @@ class DMMotor : public Motor
   /*使能*/
   void Enable() override
   {
-    /*使能can包*/
     uint8_t data[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFC};
     uint16_t id = param_.can_id;
     LibXR::CAN::ClassicPack tx_pack{};
@@ -134,7 +132,6 @@ class DMMotor : public Motor
   /*失能*/
   void Disable() override
   {
-    /*失能can包*/
     uint8_t data[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFD};
     uint16_t id = param_.can_id;
     LibXR::CAN::ClassicPack tx_pack{};
@@ -208,14 +205,13 @@ class DMMotor : public Motor
   }
 
  private:
-  uint64_t last_online_time_; /* 方便查看电机是否在线 */
+  uint64_t last_online_time_;
   Param param_;
   LSB lsb_;
   Motor::Feedback feedback_;
   LibXR::CAN* can_;
   LibXR::MPMCQueue<LibXR::CAN::ClassicPack> recv_queue_{1};
 
-  /*---------------------工具函数---------------------------------------------*/
   int FloatToUint(float x, float x_min, float x_max, int bits)
   {
     float span = x_max - x_min;
