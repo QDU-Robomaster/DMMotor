@@ -104,10 +104,10 @@ class DMMotor : public Motor
    * @param param 电机配置参数。
    *              Motor configuration parameters.
    */
-  DMMotor(
-      LibXR::CAN& can_bus,
-      const Param& param = {
-      .model = DMMotor::Model::MOTOR_DM4310, .reverse = false, .can_id = 1})
+  DMMotor(LibXR::CAN& can_bus,
+          const Param& param = {.model = DMMotor::Model::MOTOR_DM4310,
+                                .reverse = false,
+                                .can_id = 1})
       : param_(param), feedback_{}, can_(std::addressof(can_bus))
   {
     switch (param_.model)
