@@ -18,6 +18,8 @@ depends:
 #include "libxr_def.hpp"
 #include "libxr_type.hpp"
 
+// DM4310 量程：位置 (rad)、速度 (rad/s)、力矩 (N·m)、KP、KD
+// DM4310 ranges: position (rad), velocity (rad/s), torque (N·m), KP, KD
 #define DM4310_PMAX (6.283185f)
 #define DM4310_VMAX (30.0f)
 #define DM4310_TMAX (10.0f)
@@ -26,6 +28,8 @@ depends:
 #define DM4310_KD_MIN (0.0f)
 #define DM4310_KD_MAX (5.0f)
 
+// DM8009 量程：位置 (rad)、速度 (rad/s)、力矩 (N·m)、KP、KD
+// DM8009 ranges: position (rad), velocity (rad/s), torque (N·m), KP, KD
 #define DM8009_PMAX (12.56637f)
 #define DM8009_VMAX (45.0f)
 #define DM8009_TMAX (54.0f)
@@ -34,40 +38,71 @@ depends:
 #define DM8009_KD_MIN (0.0f)
 #define DM8009_KD_MAX (5.0f)
 
+/**
+ * @brief 达妙（DM）电机 CAN 驱动，实现 Motor 接口。
+ *        CAN driver for Damiao (DM) motors, implementing the Motor interface.
+ */
 class DMMotor : public Motor
 {
  public:
-  /*电机型号*/
+  /**
+   * @brief 电机型号。
+   *        Motor model.
+   */
   enum class Model : uint8_t
   {
-    MOTOR_NONE = 0,
-    MOTOR_DM4310,
-    MOTOR_DM8009,
-  };
-
-  /*电机参数*/
-  struct Param
-  {
-    Model model;
-    bool reverse;
-    uint16_t can_id;
-  };
-
-  /*量程*/
-  struct LSB
-  {
-    float P_MAX;
-    float V_MAX;
-    float T_MAX;
-    float KD_MIN;
-    float KD_MAX;
-    float KP_MIN;
-    float KP_MAX;
+    MOTOR_NONE = 0,  ///< 未指定，各项量程为 0
+                     ///< Unspecified, all ranges are 0
+    MOTOR_DM4310,    ///< DM4310
+    MOTOR_DM8009,    ///< DM8009
   };
 
   /**
-   * @brief DMMotor 的构造函数
-   * @param param 电机参数 (电机型号 是否反转 CANID CanBusName)
+   * @brief 电机配置参数。
+   *        Motor configuration parameters.
+   */
+  struct Param
+  {
+    Model model;      ///< 电机型号
+                      ///< Motor model
+    bool reverse;     ///< 反向：反馈与下发的位置、速度、力矩取反
+                      ///< Reverse: negates the position, velocity and torque of the
+                      ///< feedback and of the commands
+    uint16_t can_id;  ///< 电机控制 ID，反馈 ID 为 0x10 + can_id
+                      ///< Motor control ID; the feedback ID is 0x10 + can_id
+  };
+
+  /**
+   * @brief 型号量程。
+   *        Model ranges.
+   */
+  struct LSB
+  {
+    float P_MAX;   ///< 位置量程 (rad)
+                   ///< Position range (rad)
+    float V_MAX;   ///< 速度量程 (rad/s)
+                   ///< Velocity range (rad/s)
+    float T_MAX;   ///< 力矩量程 (N·m)
+                   ///< Torque range (N·m)
+    float KD_MIN;  ///< KD 下限
+                   ///< KD lower bound
+    float KD_MAX;  ///< KD 上限
+                   ///< KD upper bound
+    float KP_MIN;  ///< KP 下限
+                   ///< KP lower bound
+    float KP_MAX;  ///< KP 上限
+                   ///< KP upper bound
+  };
+
+  /**
+   * @brief 构造 DMMotor，并在 CAN 总线上注册反馈帧接收回调。
+   *        Construct DMMotor and register the feedback-frame receive callback on the CAN
+   *        bus.
+   *
+   * @param can_bus 电机所在的 CAN 总线。
+   *                CAN bus the motor is attached to.
+   * @param param 电机配置参数。
+   *              Motor configuration parameters.
    */
   DMMotor(
       LibXR::CAN& can_bus,
@@ -116,7 +151,10 @@ class DMMotor : public Motor
                    feedback_id_to_register);
   }
 
-  /*使能*/
+  /**
+   * @brief 发送使能帧 (0xFC)。
+   *        Send the enable frame (0xFC).
+   */
   void Enable() override
   {
     uint8_t data[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFC};
@@ -129,7 +167,10 @@ class DMMotor : public Motor
     can_->AddMessage(tx_pack);
   }
 
-  /*失能*/
+  /**
+   * @brief 发送失能帧 (0xFD)。
+   *        Send the disable frame (0xFD).
+   */
   void Disable() override
   {
     uint8_t data[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFD};
@@ -142,8 +183,20 @@ class DMMotor : public Motor
     can_->AddMessage(tx_pack);
   }
 
+  /**
+   * @brief 松开电机，等同于 Disable()。
+   *        Relax the motor; the same as Disable().
+   */
   void Relax() override { Disable(); }
 
+  /**
+   * @brief 取出接收队列中的反馈帧并解码到反馈数据。
+   *        Pop the feedback frames from the receive queue and decode them into the
+   *        feedback data.
+   *
+   * @return 始终为 ErrorCode::OK。
+   *         Always ErrorCode::OK.
+   */
   LibXR::ErrorCode Update() override
   {
     LibXR::CAN::ClassicPack pack;
@@ -155,8 +208,26 @@ class DMMotor : public Motor
     return LibXR::ErrorCode::OK;
   }
 
+  /**
+   * @brief 获取最近一次解码的反馈。
+   *        Get the most recently decoded feedback.
+   *
+   * @return 反馈数据的引用。
+   *         Reference to the feedback data.
+   */
   const Feedback& GetFeedback() override { return feedback_; }
 
+  /**
+   * @brief 按控制模式下发控制帧。
+   *        Send a control frame according to the control mode.
+   *
+   * @param cmd 控制命令。MODE_MIT 使用 position、velocity、kp、kd、torque；MODE_TORQUE
+   *            仅使用 torque；MODE_POSITION 使用 position、velocity；MODE_VELOCITY
+   *            使用 velocity；其他模式忽略。
+   *            Control command. MODE_MIT uses position, velocity, kp, kd and torque;
+   *            MODE_TORQUE uses only torque; MODE_POSITION uses position and velocity;
+   *            MODE_VELOCITY uses velocity; other modes are ignored.
+   */
   void Control(const MotorCmd& cmd) override
   {
     switch (cmd.mode)
@@ -178,7 +249,10 @@ class DMMotor : public Motor
     }
   }
 
-  /*重置错误状态*/
+  /**
+   * @brief 发送清错帧 (0xFB)。
+   *        Send the clear-error frame (0xFB).
+   */
   void ClearError() override
   {
     uint8_t data[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFB};
@@ -191,7 +265,11 @@ class DMMotor : public Motor
     can_->AddMessage(tx_pack);
   }
 
-  /*将当前位置设成零点*/
+  /**
+   * @brief 发送保存零点帧 (0xFE)，将当前位置设为零点。
+   *        Send the save-zero-point frame (0xFE), setting the current position as the
+   *        zero point.
+   */
   void SaveZeroPoint() override
   {
     uint8_t data[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE};
@@ -228,12 +306,16 @@ class DMMotor : public Motor
   }
 
   /**
-   * @brief CAN 接收回调的静态包装函数
-   * @details
-   * 将接收到的CAN数据包推入无锁队列中，供后续处理。如果队列已满，则丢弃最旧的数据包。
-   * @param in_isr 指示是否在中断服务程序中调用
-   * @param self 用户提供的参数，这里是 RMMotorContainer 实例的指针
-   * @param pack 接收到的 CAN 数据包
+   * @brief CAN 接收回调：将反馈帧推入队列，队列已满时丢弃最旧的帧。
+   *        CAN receive callback: push the feedback frame into the queue, dropping the
+   *        oldest frame when the queue is full.
+   *
+   * @param in_isr 是否在中断上下文中调用。
+   *               Whether called from interrupt context.
+   * @param self DMMotor 实例指针。
+   *             Pointer to the DMMotor instance.
+   * @param pack 接收到的 CAN 数据包。
+   *             Received CAN packet.
    */
   static void RxCallback(bool in_isr, DMMotor* self, const LibXR::CAN::ClassicPack& pack)
   {
@@ -273,10 +355,54 @@ class DMMotor : public Motor
   }
 
  public:
+  /**
+   * @brief 获取反馈位置。
+   *        Get the feedback position.
+   *
+   * @return 位置，单位 rad。
+   *         Position in rad.
+   */
   float GetAngle() const { return feedback_.position; }
+
+  /**
+   * @brief 获取反馈力矩。
+   *        Get the feedback torque.
+   *
+   * @return 力矩，单位 N·m。
+   *         Torque in N·m.
+   */
   float GetTor() const { return feedback_.torque; }
+
+  /**
+   * @brief 获取反馈角速度。
+   *        Get the feedback angular velocity.
+   *
+   * @return 角速度，单位 rad/s。
+   *         Angular velocity in rad/s.
+   */
   float GetOmega() const { return feedback_.omega; }
 
+  /**
+   * @brief 发送 MIT 控制帧。
+   *        Send an MIT control frame.
+   *
+   * 反馈温度超过 90 ℃ 时先发送失能帧并输出警告日志，随后仍发送本帧。pos、vel、tor
+   * 先按型号量程限幅。
+   * When the feedback temperature exceeds 90 ℃, the disable frame is sent and a warning
+   * is logged first, and this frame is then sent as usual. pos, vel and tor are first
+   * clamped to the model range.
+   *
+   * @param pos 目标位置，单位 rad。
+   *            Target position in rad.
+   * @param vel 目标速度，单位 rad/s。
+   *            Target velocity in rad/s.
+   * @param kp 位置刚度。
+   *           Position stiffness.
+   * @param kd 速度阻尼。
+   *           Velocity damping.
+   * @param tor 前馈力矩，单位 N·m。
+   *            Feedforward torque in N·m.
+   */
   void MITControl(float pos, float vel, float kp, float kd, float tor)
   {
     if (this->feedback_.temp > 90.0f)
