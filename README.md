@@ -115,7 +115,7 @@ modules:
           can_id: 1
 ```
 
-其他 Module（例如 `QDU-Robomaster/Gimbal`）的 `Motor&` 参数填写本实例的 id（此处为 `motor_pit`），本实例须在它们之前列出。
+其他模块（例如 `QDU-Robomaster/Gimbal`）的 `Motor&` 参数填写本实例的 id（此处为 `motor_pit`），本实例须在它们之前列出。
 
 Other Modules (for example `QDU-Robomaster/Gimbal`) take the id of this instance (here `motor_pit`) for their `Motor&` parameter; this instance is listed before them.
 
