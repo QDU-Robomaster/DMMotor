@@ -4,7 +4,7 @@
 
 ## 1. 模块作用 / Purpose
 
-DMMotor 封装达妙 CAN 协议并实现 `Motor` 抽象接口。构造时在 CAN 总线上注册一个标准帧回调，接收 ID 为 `0x10 + can_id` 的反馈帧；接收队列深度为 1，队列满时丢弃旧帧，只保留最新一帧。
+DMMotor 封装达妙 CAN 协议并实现 `Motor` 抽象接口。构造时在 CAN 总线上注册一个标准帧回调，接收 ID 为 `0x10 + can_id` 的反馈帧；反馈帧存入 LibXR 的 `LatestSnapshot`，只保留最新一帧。
 
 `Update()` 取出并解码反馈：`position`（rad）、`omega`（rad/s）、`velocity`（rpm，由 `omega` 换算）、`torque`（N·m）、`temp`（帧内两路温度的较大值）、`error_id`（帧首字节低 4 位）与 `state`（帧首字节高 4 位）；`abs_angle` 取 `position`。`reverse = true` 时，反馈的 `position`、`velocity`、`omega`、`torque` 取反，下发的位置、速度与力矩也取反。
 
@@ -24,7 +24,7 @@ MIT 与位置模式下，反馈温度超过 90 ℃ 时发送失能帧并输出 `
 
 除 `Motor` 接口外，公共接口还有 `MITControl(pos, vel, kp, kd, tor)`、`GetAngle()`、`GetTor()` 与 `GetOmega()`。
 
-DMMotor implements the `Motor` interface on top of the Damiao CAN protocol. Upon construction it registers a standard-frame callback on the CAN bus that receives feedback frames with ID `0x10 + can_id`. The receive queue has depth 1; when it is full the old frame is dropped, so only the latest frame is kept.
+DMMotor implements the `Motor` interface on top of the Damiao CAN protocol. Upon construction it registers a standard-frame callback on the CAN bus that receives feedback frames with ID `0x10 + can_id`. Feedback frames are stored in LibXR's `LatestSnapshot`, which keeps only the latest frame.
 
 `Update()` pops and decodes the feedback: `position` (rad), `omega` (rad/s), `velocity` (rpm, converted from `omega`), `torque` (N·m), `temp` (the larger of the two temperatures in the frame), `error_id` (low 4 bits of the first byte) and `state` (high 4 bits of the first byte); `abs_angle` takes the value of `position`. With `reverse = true`, the feedback `position`, `velocity`, `omega` and `torque` are negated, as are the position, velocity and torque that are sent.
 

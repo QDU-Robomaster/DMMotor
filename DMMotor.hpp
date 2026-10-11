@@ -15,6 +15,7 @@ depends:
 
 #include "Motor.hpp"
 #include "can.hpp"
+#include "latest_snapshot.hpp"
 #include "libxr_def.hpp"
 #include "libxr_type.hpp"
 
@@ -190,9 +191,8 @@ class DMMotor : public Motor
   void Relax() override { Disable(); }
 
   /**
-   * @brief 取出接收队列中的反馈帧并解码到反馈数据。
-   *        Pop the feedback frames from the receive queue and decode them into the
-   *        feedback data.
+   * @brief 取出最新的反馈帧并解码到反馈数据。
+   *        Take the latest feedback frame and decode it into the feedback data.
    *
    * @return 始终为 ErrorCode::OK。
    *         Always ErrorCode::OK.
@@ -200,7 +200,7 @@ class DMMotor : public Motor
   LibXR::ErrorCode Update() override
   {
     LibXR::CAN::ClassicPack pack;
-    while (recv_queue_.Pop(pack) == LibXR::ErrorCode::OK)
+    if (feedback_frame_.LoadLatest(pack))
     {
       this->Decode(pack);
       last_online_time_ = LibXR::Timebase::GetMicroseconds();
@@ -288,7 +288,7 @@ class DMMotor : public Motor
   LSB lsb_;
   Motor::Feedback feedback_;
   LibXR::CAN* can_;
-  LibXR::MPMCQueue<LibXR::CAN::ClassicPack> recv_queue_{1};
+  LibXR::LatestSnapshot<LibXR::CAN::ClassicPack> feedback_frame_{LibXR::CAN::ClassicPack{}};
 
   int FloatToUint(float x, float x_min, float x_max, int bits)
   {
@@ -306,9 +306,9 @@ class DMMotor : public Motor
   }
 
   /**
-   * @brief CAN 接收回调：将反馈帧推入队列，队列已满时丢弃最旧的帧。
-   *        CAN receive callback: push the feedback frame into the queue, dropping the
-   *        oldest frame when the queue is full.
+   * @brief CAN 接收回调：保存最新的反馈帧，覆盖尚未取走的旧帧。
+   *        CAN receive callback: store the latest feedback frame, replacing an older
+   *        frame that has not been taken.
    *
    * @param in_isr 是否在中断上下文中调用。
    *               Whether called from interrupt context.
@@ -320,10 +320,7 @@ class DMMotor : public Motor
   static void RxCallback(bool in_isr, DMMotor* self, const LibXR::CAN::ClassicPack& pack)
   {
     UNUSED(in_isr);
-    while (self->recv_queue_.Push(pack) != LibXR::ErrorCode::OK)
-    {
-      self->recv_queue_.Pop();
-    }
+    self->feedback_frame_.Store(pack);
   }
 
   void Decode(LibXR::CAN::ClassicPack& pack)
