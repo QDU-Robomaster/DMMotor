@@ -142,7 +142,7 @@ class DMMotor : public Motor
         break;
     }
     // 反馈帧 ID 为 0x10 + can_id
-    uint16_t feedback_id_to_register = 0x10 + param_.can_id;
+    uint16_t feedback_id_to_register = 0x20 + param_.can_id;
 
     auto rx_callback = LibXR::CAN::Callback::Create(
         [](bool in_isr, DMMotor* self, const LibXR::CAN::ClassicPack& pack)
